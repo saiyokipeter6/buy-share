@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buy Your Own Share</title>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyC0knJwxAOVJEseIIKX88aUTW7x4zfalnA",
+  authDomain: "buy---share.firebaseapp.com",
+  projectId: "buy---share",
+  storageBucket: "buy---share.firebasestorage.app",
+  messagingSenderId: "26360391308",
+  appId: "1:26360391308:web:38a4580878e451690b3da9"
+};
+const app = initializeApp(firebaseConfig);
+window.db = getFirestore(app);
+window.fs = {doc,setDoc,getDoc,getDocs,collection,query,where,updateDoc};
+</script>
+<style>
+body{font-family:Arial;background:#f1f2f6;margin:0}
+.card{background:#fff;max-width:500px;margin:12px auto;padding:18px;border-radius:14px;box-shadow:0 4px 15px rgba(0,0,0,.1)}
+input,button{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}
+button{background:#00b894;color:#fff;border:none;font-weight:bold;cursor:pointer}
+.hidden{display:none!important}
+.mpesa-box{background:#e8f8f5;border:1px dashed #00b894;padding:12px;border-radius:8px;text-align:center}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:20}
+.modal-content{background:#fff;width:90%;max-width:400px;padding:18px;border-radius:12px;max-height:90vh;overflow-y:auto}
+.other-link{font-size:11px;color:#0984e3;text-align:center;margin:10px 0;cursor:pointer;text-decoration:underline;display:block}
+.crypto-box{background:#fff9db;border:1px solid #fdcb6e;padding:12px;border-radius:8px;font-size:11px;word-break:break-all}
+</style>
+</head>
+<body>
+
+<div class="card" id="authCard">
+<h2 style="text-align:center">Buy Your Own Share</h2>
+<p style="text-align:center;font-size:11px">Activation KSH 350 | M-Pesa 0745130175</p>
+<div id="registerForm">
+<input id="regName" placeholder="Full Name">
+<input id="regPhone" placeholder="Phone 0745...">
+<input id="regPass" type="password" placeholder="Password e.g. Baba@1234">
+<input id="regRef" placeholder="Referrer Phone">
+<button onclick="register()">Register</button>
+<p style="text-align:center;font-size:13px">Have account? <a href="#" onclick="toggleAuth()">Login</a></p>
+</div>
+<div id="loginForm" class="hidden">
+<input id="logPhone" placeholder="Phone">
+<input id="logPass" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p style="text-align:center"><a href="#" onclick="openForgot()" style="font-size:12px;color:#e17055">Forgot Password?</a></p>
+<p style="text-align:center;font-size:13px">No account? <a href="#" onclick="toggleAuth()">Register</a></p>
+</div>
+</div>
+
+<div class="card hidden" id="dashCard">
+<div id="statusBox" class="mpesa-box"></div>
+<div style="display:flex;gap:5px;margin:10px 0"><div style="flex:1;background:#f8f9fa;padding:8px;border-radius:8px;text-align:center"><b id="uCount">0</b><br><span style="font-size:10px">Direct</span></div><div style="flex:1;background:#f8f9fa;padding:8px;border-radius:8px;text-align:center"><b id="uBonus">0</b><br><span style="font-size:10px">Bonus</span></div><div style="flex:1;background:#f8f9fa;padding:8px;border-radius:8px;text-align:center"><b id="uShares">0</b><br><span style="font-size:10px">Shares</span></div></div>
+<p><b>Referral Link:</b></p><div style="display:flex;gap:5px"><input id="uLink" readonly><button onclick="navigator.clipboard.writeText(uLink.value);alert('Copied')" style="width:70px;background:#6c5ce7">Copy</button></div>
+<div style="margin-top:15px"><button onclick="openDeposit()" style="background:#6c5ce7">Deposit 350</button><button onclick="openWithdraw()" style="background:#e17055">Withdraw</button><button onclick="openLoan()" style="background:#0984e3">Loan</button></div>
+<div style="font-size:11px;color:#6c5ce7;text-align:center;margin:15px 0;cursor:pointer;text-decoration:underline" onclick="openBuyMore()">Buy More Shares</div>
+<button onclick="location.reload()" style="background:#636e72">Logout</button>
+</div>
+
+<div id="depositModal" class="modal hidden"><div class="modal-content"><h3>Deposit KSH 350</h3><div class="mpesa-box">M-Pesa: <b>0745130175</b></div><input id="depCode" placeholder="M-Pesa Code / TxID"><input id="depPhone" placeholder="Your M-Pesa No"><button onclick="confirmDeposit()">Submit</button><span class="other-link" onclick="otherModal.classList.remove('hidden')">Other Options</span><button onclick="closeModals()" style="background:#636e72">Close</button></div></div>
+
+<div id="buyMoreModal" class="modal hidden"><div class="modal-content"><h3>Buy More Shares</h3><input id="moreQty" type="number" placeholder="Qty e.g 2"><input id="moreCode" placeholder="M-Pesa Code / TxID"><button onclick="confirmBuyMore()" style="background:#6c5ce7">Submit</button><span class="other-link" onclick="otherModal.classList.remove('hidden')">Other Options</span><button onclick="closeModals()" style="background:#636e72">Close</button></div></div>
+
+<div id="otherModal" class="modal hidden"><div class="modal-content"><h3>Other Options</h3><div class="crypto-box"><b>BNB (BEP20)</b><br>0x34e38b2c0308ff93638ee3a6e9076171b7d58e59<br><button onclick="navigator.clipboard.writeText('0x34e38b2c0308ff93638ee3a6e9076171b7d58e59');alert('Copied')" style="width:auto;padding:4px 8px;font-size:10px;background:#fdcb6e;color:#000">Copy Address</button><hr><b>Binance Pay ID: 500613316</b><br><button onclick="navigator.clipboard.writeText('500613316');alert('Copied')" style="width:auto;padding:4px 8px;font-size:10px;background:#fdcb6e;color:#000">Copy ID</button><hr><div style="text-align:center"><b>KSH 350 = $2.6</b></div></div><button onclick="otherModal.classList.add('hidden')" style="background:#6c5ce7;margin-top:10px">Back</button></div></div>
+
+<div id="waitModal" class="modal hidden"><div class="modal-content" style="text-align:center"><h3>⏳ Wait for Approval</h3><p>Admin 0745130175 will approve soon</p><button onclick="closeModals()" style="background:#6c5ce7">OK</button></div></div>
+
+<div id="withdrawModal" class="modal hidden"><div class="modal-content"><h3>Withdraw</h3><input id="withAmount" type="number" placeholder="Min 100"><input id="withPhone" placeholder="M-Pesa to receive"><button onclick="requestWithdraw()" style="background:#e17055">Request</button><button onclick="closeModals()" style="background:#636e72">Close</button></div></div>
+
+<div id="loanModal" class="modal hidden"><div class="modal-content"><h3>Loan</h3><div id="loanContent"></div><p style="font-size:10px;color:#e17055;text-align:center;margin-top:10px">1% interest per day</p><button onclick="closeModals()" style="background:#636e72;margin-top:10px">Close</button></div></div>
+
+<div id="forgotModal" class="modal hidden"><div class="modal-content"><h3>Forgot Password</h3><input id="forgotPhone" placeholder="Your Phone"><input id="forgotNewPass" type="password" placeholder="New Password"><button onclick="resetPassword()" style="background:#6c5ce7">Reset</button><button onclick="closeModals()" style="background:#636e72">Cancel</button></div></div>
+
+<div class="card hidden" id="adminCard"><h2>Admin Panel</h2><div style="display:flex;gap:4px"><button onclick="adminTab='dep';loadAdmin()" style="flex:1;background:#00b894;padding:6px;font-size:10px">Deposits</button><button onclick="adminTab='more';loadAdmin()" style="flex:1;background:#6c5ce7;padding:6px;font-size:10px">More</button><button onclick="adminTab='with';loadAdmin()" style="flex:1;background:#e17055;padding:6px;font-size:10px">Withdraws</button><button onclick="adminTab='users';loadAdmin()" style="flex:1;background:#636e72;padding:6px;font-size:10px">Users</button></div><div id="adminList" style="margin-top:12px"></div><button onclick="location.reload()" style="background:#d63031;margin-top:10px">Logout</button></div>
+
+<script>
+let current=null, users={}, adminTab='dep';
+const COMMISSION={1:50,2:25,3:25,4:25,5:25,6:25,7:25,8:25,9:25};
+const ADMIN_PASS="baba@2030";
+function isStrong(p){return p.length>=8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p);}
+function toggleAuth(){registerForm.classList.toggle('hidden');loginForm.classList.toggle('hidden');}
+function openForgot(){forgotModal.classList.remove('hidden');}
+function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.add('hidden'));}
+function openDeposit(){depositModal.classList.remove('hidden');}
+function openBuyMore(){buyMoreModal.classList.remove('hidden');}
+function openWithdraw(){withdrawModal.classList.remove('hidden');}
+function openLoan(){loanModal.classList.remove('hidden'); checkLoan();}
+
+async function getUsers(){let snap=await fs.getDocs(fs.collection(db,'users')); users={}; snap.forEach(d=>users[d.id]=d.data());}
+
+async function register(){
+ let n=regName.value.trim(), p=regPhone.value.trim(), pw=regPass.value.trim(), r=regRef.value.trim();
+ if(!n||!p||!pw) return alert('Fill all');
+ if(!isStrong(pw)) return alert('Example: Baba@1234 - Need 8+ chars with Upper, lower, number & @');
+ await getUsers();
+ if(users[p]) return alert('Phone exists');
+ let parent=null,side=null;
+ if(Object.keys(users).length>0){
+  if(!r ||!users[r]) return alert('Valid referrer needed');
+  let q=[r]; while(q.length){ let cur=q.shift(); if(!users[cur]) continue; if(!users[cur].left){parent=cur;side='left';break;} if(!users[cur].right){parent=cur;side='right';break;} if(users[cur].left) q.push(users[cur].left); if(users[cur].right) q.push(users[cur].right); }
+ }
+ let newU={name:n,phone:p,pass:pw,referrer:r||null,parent,left:null,right:null,status:'PENDING',shares:0,bonus:0,direct:0,withdrawn:0,earnings:{1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}};
+ await fs.setDoc(fs.doc(db,'users',p), newU);
+ if(parent) await fs.updateDoc(fs.doc(db,'users',parent), {[side]:p});
+ alert('Registered! Login now'); toggleAuth();
+}
+
+async function login(){
+ let p=logPhone.value.trim(), pw=logPass.value.trim();
+ // Secret admin - only works if you type admin + baba@2030, but not shown anywhere on page
+ if(p==='admin' && pw===ADMIN_PASS){ adminCard.classList.remove('hidden'); authCard.classList.add('hidden'); loadAdmin(); return; }
+ await getUsers();
+ if(!users[p] || users[p].pass!==pw) return alert('Wrong password');
+ current=p; showDash();
+}
+
+async function showDash(){
+ await getUsers(); let u=users[current];
+ if(!u) return;
+ authCard.classList.add('hidden'); dashCard.classList.remove('hidden');
+ statusBox.innerHTML = u.status==='ACTIVE'? `✅ Active - Shares: ${u.shares||1}` : `🔒 Not Active - Deposit KSH 350 to 0745130175`;
+ uCount.textContent=u.direct; uBonus.textContent=u.bonus; uShares.textContent=u.shares||0;
+ uLink.value=location.href.split('?')[0]+'?ref='+u.phone;
+}
+
+async function confirmDeposit(){
+ let code=depCode.value.trim(), phone=depPhone.value.trim();
+ if(!code||!phone) return alert('Fill all');
+ let id=Date.now().toString();
+ await fs.setDoc(fs.doc(db,'deposits',id), {id,userPhone:current,amount:350,code,phone,status:'PENDING',date:new Date().toLocaleString()});
+ closeModals(); waitModal.classList.remove('hidden');
+}
+async function confirmBuyMore(){
+ let qty=parseInt(moreQty.value)||1, code=moreCode.value.trim();
+ if(!qty||!code) return alert('Fill all');
+ let id=Date.now().toString();
+ await fs.setDoc(fs.doc(db,'buymore',id), {id,userPhone:current,qty,amount:qty*350,code,status:'PENDING',date:new Date().toLocaleString()});
+ closeModals(); waitModal.classList.remove('hidden');
+}
+async function requestWithdraw(){
+ let amt=parseInt(withAmount.value), to=withPhone.value.trim();
+ await getUsers(); let bal=users[current].bonus-users[current].withdrawn;
+ if(amt>bal||amt<100) return alert('Invalid amount');
+ let id=Date.now().toString();
+ await fs.setDoc(fs.doc(db,'withdraws',id), {id,userPhone:current,amount:amt,to,status:'PENDING',date:new Date().toLocaleString()});
+ await fs.updateDoc(fs.doc(db,'users',current), {withdrawn: users[current].withdrawn+amt});
+ closeModals(); alert('Request sent'); showDash();
+}
+async function checkLoan(){
+ await getUsers(); loanContent.innerHTML=`<input id="loanAmt" type="number" placeholder="Amount"><button onclick="submitLoan()" style="background:#0984e3">Request Loan</button>`;
+}
+async function submitLoan(){
+ let amt=parseInt(loanAmt.value); if(!amt) return alert('Enter amount');
+ let id=Date.now().toString();
+ await fs.setDoc(fs.doc(db,'loans',id), {id,userPhone:current,amount:amt,status:'PENDING',date:new Date().toLocaleString()});
+ closeModals(); alert('Loan request sent - 1% interest per day');
+}
+async function resetPassword(){
+ let phone=forgotPhone.value.trim(), np=forgotNewPass.value.trim();
+ if(!isStrong(np)) return alert('Password must be Baba@1234 format');
+ await getUsers(); if(!users[phone]) return alert('Not found');
+ await fs.updateDoc(fs.doc(db,'users',phone), {pass:np});
+ alert('Reset success! Login now'); closeModals();
+}
+async function loadAdmin(){
+ await getUsers();
+ let col = adminTab==='more'? 'buymore' : adminTab==='with'? 'withdraws' : adminTab==='users'? 'users' : 'deposits';
+ let html='';
+ if(col==='users'){
+  for(let k in users){ html+=`<div style="border:1px solid #ddd;padding:6px;margin:5px 0;font-size:12px"><b>${users[k].name}</b> ${k} - Shares:${users[k].shares} Bal:${users[k].bonus-users[k].withdrawn} - ${users[k].status}</div>`; }
+ } else {
+  let snap=await fs.getDocs(fs.query(fs.collection(db,col), fs.where('status','==','PENDING')));
+  if(snap.empty) html='<p>No pending</p>';
+  snap.forEach(d=>{ let x=d.data(); html+=`<div style="border:1px solid #00b894;padding:8px;margin:6px 0;background:#fff;font-size:12px"><b>${x.userPhone||x.id}</b> KSH ${x.amount||''} ${x.qty? x.qty+' shares':''} Code:${x.code||''}<br><button onclick="approve('${col}','${x.id}')" style="background:#00b894;width:auto;padding:4px 8px;font-size:11px;margin-top:5px">Approve</button> <button onclick="reject('${col}','${x.id}')" style="background:#636e72;width:auto;padding:4px 8px;font-size:11px">Reject</button></div>`; });
+ }
+ adminList.innerHTML=html;
+}
+window.approve=async(col,id)=>{
+ let snap=await fs.getDoc(fs.doc(db,col,id)); let data=snap.data();
+ if(col==='deposits'){
+  let uSnap=await fs.getDoc(fs.doc(db,'users',data.userPhone)); let u=uSnap.data();
+  await fs.updateDoc(fs.doc(db,'users',data.userPhone), {status:'ACTIVE', shares:(u.shares||0)+1});
+  if(u.referrer && users[u.referrer]){
+   let ref=users[u.referrer];
+   await fs.updateDoc(fs.doc(db,'users',u.referrer), {direct:(ref.direct||0)+1, bonus:(ref.bonus||0)+50});
+  }
+ }
+ if(col==='buymore'){
+  let uSnap=await fs.getDoc(fs.doc(db,'users',data.userPhone)); let u=uSnap.data();
+  await fs.updateDoc(fs.doc(db,'users',data.userPhone), {shares:(u.shares||0)+data.qty});
+ }
+ await fs.updateDoc(fs.doc(db,col,id), {status:'APPROVED'}); loadAdmin();
+}
+window.reject=async(col,id)=>{ await fs.updateDoc(fs.doc(db,col,id), {status:'REJECTED'}); loadAdmin(); }
+
+window.register=register; window.login=login; window.showDash=showDash; window.confirmDeposit=confirmDeposit; window.confirmBuyMore=confirmBuyMore; window.requestWithdraw=requestWithdraw; window.submitLoan=submitLoan; window.resetPassword=resetPassword; window.loadAdmin=loadAdmin;
+let p=new URLSearchParams(location.search).get('ref'); if(p) setTimeout(()=>{regRef.value=p;},300);
+</script>
+</body>
+</html>
